@@ -376,7 +376,7 @@ function printSuccess(projectName, options) {
 // ─── メインの対話フロー ──────────────────────────────────
 
 async function main() {
-  console.log('\n' + chalk.bold.cyan('◆ create-my-app') + chalk.gray('  プロジェクト雛形ジェネレーター\n'));
+  console.log('\n' + chalk.bold.cyan('◆ create-web-app-cli') + chalk.gray('  プロジェクト雛形ジェネレーター\n'));
 
   const answers = await inquirer.prompt([
     {
