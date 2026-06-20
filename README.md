@@ -6,15 +6,15 @@ Next.js(App Router), React(vite), Vue.js(vite), Tailwindcss, shadcn/ui, Storyboo
 
 # 使用方法
 ①グローバルインストール  
-```bash git clone https://github.com/Crazy-ontyan/create-web-app-cli.git```  
-cd create-web-app-cli  
-npm install  
-npm link  
+```git clone https://github.com/Crazy-ontyan/create-web-app-cli.git```  
+```cd create-web-app-cli```  
+```npm install```  
+```npm link```  
 インストール後は任意のディレクトリで使えます:  
-npm create-web-app-cli  
+```npm create-web-app-cli```  
 
 ②クローンせず直接実行  
-npx github:Crazy-ontyan/create-web-app-cli  
+```npx github:Crazy-ontyan/create-web-app-cli```  
 
 # アンインストール
-npm unlink create-web-app-cli
+```npm unlink create-web-app-cli```
