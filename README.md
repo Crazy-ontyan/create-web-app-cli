@@ -3,7 +3,7 @@ CLIでweb開発の様々な雛形を生成できるツール
 
 現在以下に対応しています。  
   
-パッケージマネージャー: npm, bun
+パッケージマネージャー: npm, bun  
 フレームワーク: Next.js (App Router) / React (Vite) / Vue 3 (Vite)  
 オプション: TailwindCSS, shadcn/ui, Storybook, ESLint/Prettier, TypeScript  
 
