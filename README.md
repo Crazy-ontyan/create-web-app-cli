@@ -17,7 +17,7 @@ npm link
 ``` 
 インストール後は任意のディレクトリで使えます:  
 ```bash
-npm create-web-app-cli
+create-web-app-cli
 ```  
 
 ### ②クローンせず直接実行  
