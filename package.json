@@ -1,5 +1,5 @@
 {
-  "name": "create-my-app",
+  "name": "create-web-app-cli",
   "version": "1.0.0",
   "description": "対話型フロントエンドプロジェクトジェネレーター",
   "main": "index.js",

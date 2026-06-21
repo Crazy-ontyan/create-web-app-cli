@@ -496,7 +496,7 @@ async function main() {
 }
 
 program
-  .name('create-my-app')
+  .name('create-web-app-cli')
   .version(pkg.version)
   .description('対話型フロントエンドプロジェクトジェネレーター')
   .action(main);
