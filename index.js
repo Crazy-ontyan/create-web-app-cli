@@ -26,7 +26,7 @@ function run(cmd, cwd) {
 }
 
 function runSilent(cmd, cwd) {
-  execSync(cmd, { cwd, stdio: 'pipe', env: {...process.env, Ci: 'true' } });
+  execSync(cmd, { cwd, stdio: 'pipe', env: {...process.env, CI: 'true' } });
 }
 
 // ─── shadcn/ui セットアップ ──────────────────────────────
@@ -190,9 +190,9 @@ async function createNextjs(projectName, options, targetDir) {
     '--app',
     '--src-dir',
     '--no-git',
-    packageManager === 'bun' ? '--use-bun' : '',
+    packageManager === 'bun' ? '--use-bun' : null,
     `--import-alias "@/*"`,
-  ].join(' ');
+  ].filter(Boolean).join(' ');
 
   log.step(`create-next-app を実行中...`);
   const npxCmd = (packageManager === 'npm' ? 'npx' : 'bunx') + ` create-next-app@latest ${projectName} ${flags}`;
@@ -233,7 +233,7 @@ async function createReactVite(projectName, options, targetDir) {
   : `bun create vite@latest ${projectName} --template ${template}`;
   
   execSync(runnerCmd, { cwd: path.dirname(targetDir), stdio: 'pipe' });
-  runSilent(packageManager === 'npm' ? 'npm install' : 'bun add' , targetDir);
+  runSilent(packageManager === 'npm' ? 'npm install' : 'bun install', targetDir);
 
   if (tailwind) {
     log.step('TailwindCSS をセットアップ中...');
@@ -314,7 +314,7 @@ async function createVueVite(projectName, options, targetDir) {
   execSync(runnerCmd, { cwd: path.dirname(targetDir), stdio: 'pipe' });
 
   log.step('ベースパッケージをインストール中...');
-  runSilent(packageManager === 'npm' ? 'npm install' : 'bun add', targetDir);
+  runSilent(packageManager === 'npm' ? 'npm install' : 'bun install', targetDir);
 
   if (tailwind) {
     log.step('TailwindCSS をセットアップ中...');
