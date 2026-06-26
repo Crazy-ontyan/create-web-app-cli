@@ -1,32 +1,32 @@
 #!/usr/bin/env node
 
-const { program } = require('commander');
-const inquirer = require('inquirer');
-const chalk = require('chalk');
-const ora = require('ora');
-const { execSync } = require('child_process');
-const path = require('path');
-const fs = require('fs');
+const { program } = require("commander");
+const inquirer = require("inquirer");
+const chalk = require("chalk");
+const ora = require("ora");
+const { execSync } = require("child_process");
+const path = require("path");
+const fs = require("fs");
 
-const pkg = require('./package.json');
+const pkg = require("./package.json");
 
 // ─── ヘルパー ─────────────────────────────────────────────
 
 const log = {
-  info:    (msg) => console.log(chalk.cyan('  ℹ'), msg),
-  success: (msg) => console.log(chalk.green('  ✔'), msg),
-  warn:    (msg) => console.log(chalk.yellow('  ⚠'), msg),
-  error:   (msg) => console.log(chalk.red('  ✖'), msg),
-  title:   (msg) => console.log('\n' + chalk.bold.white(msg)),
-  step:    (msg) => console.log(chalk.gray('  →'), msg),
+  info: (msg) => console.log(chalk.cyan("  ℹ"), msg),
+  success: (msg) => console.log(chalk.green("  ✔"), msg),
+  warn: (msg) => console.log(chalk.yellow("  ⚠"), msg),
+  error: (msg) => console.log(chalk.red("  ✖"), msg),
+  title: (msg) => console.log("\n" + chalk.bold.white(msg)),
+  step: (msg) => console.log(chalk.gray("  →"), msg),
 };
 
 function run(cmd, cwd) {
-  execSync(cmd, { cwd, stdio: 'inherit', env: {...process.env, CI: 'true' } });
+  execSync(cmd, { cwd, stdio: "inherit", env: { ...process.env, CI: "true" } });
 }
 
 function runSilent(cmd, cwd) {
-  execSync(cmd, { cwd, stdio: 'pipe', env: {...process.env, CI: 'true' } });
+  execSync(cmd, { cwd, stdio: "pipe", env: { ...process.env, CI: "true" } });
 }
 
 // ─── shadcn/ui セットアップ ──────────────────────────────
@@ -34,44 +34,50 @@ function runSilent(cmd, cwd) {
 function setupShadcn(packageManager, projectPath, useTs) {
   // components.json を自動生成
   const componentsJson = {
-    "$schema": "https://ui.shadcn.com/schema.json",
-    "style": "default",
-    "rsc": true,
-    "tsx": useTs,
-    "tailwind": {
-      "config": useTs ? "tailwind.config.ts" : "tailwind.config.js",
-      "css": "src/app/globals.css",
-      "baseColor": "slate",
-      "cssVariables": true,
-      "prefix": ""
+    $schema: "https://ui.shadcn.com/schema.json",
+    style: "default",
+    rsc: true,
+    tsx: useTs,
+    tailwind: {
+      config: useTs ? "tailwind.config.ts" : "tailwind.config.js",
+      css: "src/app/globals.css",
+      baseColor: "slate",
+      cssVariables: true,
+      prefix: "",
     },
-    "aliases": {
-      "components": "@/components",
-      "utils": "@/lib/utils",
-      "ui": "@/components/ui",
-      "lib": "@/lib",
-      "hooks": "@/hooks"
+    aliases: {
+      components: "@/components",
+      utils: "@/lib/utils",
+      ui: "@/components/ui",
+      lib: "@/lib",
+      hooks: "@/hooks",
     },
-    "iconLibrary": "lucide"
+    iconLibrary: "lucide",
   };
   fs.writeFileSync(
-    path.join(projectPath, 'components.json'),
-    JSON.stringify(componentsJson, null, 2)
+    path.join(projectPath, "components.json"),
+    JSON.stringify(componentsJson, null, 2),
   );
 
   // lib/utils.ts を作成
-  const libDir = path.join(projectPath, 'src', 'lib');
+  const libDir = path.join(projectPath, "src", "lib");
   fs.mkdirSync(libDir, { recursive: true });
-  const ext = useTs ? 'ts' : 'js';
-  fs.writeFileSync(path.join(libDir, `utils.${ext}`), `import { type ClassValue, clsx } from "clsx"
+  const ext = useTs ? "ts" : "js";
+  fs.writeFileSync(
+    path.join(libDir, `utils.${ext}`),
+    `import { type ClassValue, clsx } from "clsx"
 import { twMerge } from "tailwind-merge"
 
 export function cn(...inputs: ClassValue[]) {
   return twMerge(clsx(inputs))
 }
-`);
+`,
+  );
 
-  const installCmd = packageManager === 'npm' ? 'npm install clsx tailwind-merge lucide-react' : 'bun add clsx tailwind-merge lucide-react';
+  const installCmd =
+    packageManager === "npm"
+      ? "npm install clsx tailwind-merge lucide-react"
+      : "bun add clsx tailwind-merge lucide-react";
   runSilent(installCmd, projectPath);
 }
 
@@ -79,14 +85,15 @@ export function cn(...inputs: ClassValue[]) {
 
 function setupStorybook(projectPath, framework) {
   // .storybook/main.js を作成
-  const storybookDir = path.join(projectPath, '.storybook');
+  const storybookDir = path.join(projectPath, ".storybook");
   fs.mkdirSync(storybookDir, { recursive: true });
 
-  const frameworkPkg = framework === 'nextjs'
-    ? '@storybook/nextjs'
-    : '@storybook/react-vite';
+  const frameworkPkg =
+    framework === "nextjs" ? "@storybook/nextjs" : "@storybook/react-vite";
 
-  fs.writeFileSync(path.join(storybookDir, 'main.js'), `/** @type { import('@storybook/react').StorybookConfig } */
+  fs.writeFileSync(
+    path.join(storybookDir, "main.js"),
+    `/** @type { import('@storybook/react').StorybookConfig } */
 const config = {
   stories: ['../src/**/*.mdx', '../src/**/*.stories.@(js|jsx|mjs|ts|tsx)'],
   addons: [
@@ -100,9 +107,12 @@ const config = {
   },
 };
 export default config;
-`);
+`,
+  );
 
-  fs.writeFileSync(path.join(storybookDir, 'preview.js'), `/** @type { import('@storybook/react').Preview } */
+  fs.writeFileSync(
+    path.join(storybookDir, "preview.js"),
+    `/** @type { import('@storybook/react').Preview } */
 const preview = {
   parameters: {
     controls: {
@@ -114,12 +124,15 @@ const preview = {
   },
 };
 export default preview;
-`);
+`,
+  );
 
   // サンプルStoryを作成
-  const storiesDir = path.join(projectPath, 'src', 'stories');
+  const storiesDir = path.join(projectPath, "src", "stories");
   fs.mkdirSync(storiesDir, { recursive: true });
-  fs.writeFileSync(path.join(storiesDir, 'Button.stories.tsx'), `import type { Meta, StoryObj } from '@storybook/react';
+  fs.writeFileSync(
+    path.join(storiesDir, "Button.stories.tsx"),
+    `import type { Meta, StoryObj } from '@storybook/react';
 
 const Button = ({ label, primary }: { label: string; primary?: boolean }) => (
   <button
@@ -148,58 +161,72 @@ type Story = StoryObj<typeof Button>;
 
 export const Primary: Story = { args: { label: 'Button', primary: true } };
 export const Secondary: Story = { args: { label: 'Button' } };
-`);
+`,
+  );
 }
 
 // ─── ESLint / Prettier セットアップ ─────────────────────
 
 function setupLintPrettier(projectPath, useTs) {
-  const eslintConfig = useTs ? `{
+  const eslintConfig = useTs
+    ? `{
   "extends": ["next/core-web-vitals", "next/typescript", "prettier"]
-}` : `{
+}`
+    : `{
   "extends": ["next/core-web-vitals", "prettier"]
 }`;
 
-  fs.writeFileSync(path.join(projectPath, '.eslintrc.json'), eslintConfig);
+  fs.writeFileSync(path.join(projectPath, ".eslintrc.json"), eslintConfig);
 
-  fs.writeFileSync(path.join(projectPath, '.prettierrc'), `{
+  fs.writeFileSync(
+    path.join(projectPath, ".prettierrc"),
+    `{
   "semi": false,
   "singleQuote": true,
   "tabWidth": 2,
   "trailingComma": "es5",
   "printWidth": 100
 }
-`);
+`,
+  );
 
-  fs.writeFileSync(path.join(projectPath, '.prettierignore'), `node_modules
+  fs.writeFileSync(
+    path.join(projectPath, ".prettierignore"),
+    `node_modules
 .next
 dist
 build
-`);
+`,
+  );
 }
 
 // ─── Next.js プロジェクト生成 ────────────────────────────
 
 async function createNextjs(projectName, options, targetDir) {
-  const { packageManager, tailwind, typescript, storybook, eslint, shadcn } = options;
+  const { packageManager, tailwind, typescript, storybook, eslint, shadcn } =
+    options;
 
   const flags = [
-    typescript    ? '--typescript'    : '--javascript',
-    tailwind      ? '--tailwind'      : '--no-tailwind',
-    eslint        ? '--eslint'        : '--no-eslint',
-    '--app',
-    '--src-dir',
-    '--no-git',
-    packageManager === 'bun' ? '--use-bun' : null,
+    typescript ? "--typescript" : "--javascript",
+    tailwind ? "--tailwind" : "--no-tailwind",
+    eslint ? "--eslint" : "--no-eslint",
+    "--app",
+    "--src-dir",
+    "--no-git",
+    packageManager === "bun" ? "--use-bun" : null,
     `--import-alias "@/*"`,
-  ].filter(Boolean).join(' ');
+  ]
+    .filter(Boolean)
+    .join(" ");
 
   log.step(`create-next-app を実行中...`);
-  const npxCmd = (packageManager === 'npm' ? 'npx' : 'bunx') + ` create-next-app@latest ${projectName} ${flags}`;
+  const npxCmd =
+    (packageManager === "npm" ? "npx" : "bunx") +
+    ` create-next-app@latest ${projectName} ${flags}`;
   run(npxCmd, path.dirname(targetDir));
 
   if (shadcn && tailwind) {
-    log.step('shadcn/ui をセットアップ中...');
+    log.step("shadcn/ui をセットアップ中...");
     setupShadcn(packageManager, targetDir, typescript);
   }
 
@@ -208,14 +235,19 @@ async function createNextjs(projectName, options, targetDir) {
   }
 
   if (storybook) {
-    log.step('Storybook をセットアップ中...');
-    const sbCmd = (packageManager === 'npm' ? 'npx' : 'bunx') + ` storybook@latest init --yes --no-dev`;
-    runSilent(sbCmd, targetDir);  
+    log.step("Storybook をセットアップ中...");
+    const sbCmd =
+      (packageManager === "npm" ? "npx" : "bunx") +
+      ` storybook@latest init --yes --no-dev`;
+    runSilent(sbCmd, targetDir);
   }
 
   if (eslint) {
-    log.step('Prettier をセットアップ中...');
-    const lintCmd = packageManager === 'npm' ? 'npm install -D prettier eslint-config-prettier' : 'bun add -d prettier eslint-config-prettier';
+    log.step("Prettier をセットアップ中...");
+    const lintCmd =
+      packageManager === "npm"
+        ? "npm install -D prettier eslint-config-prettier"
+        : "bun add -d prettier eslint-config-prettier";
     runSilent(lintCmd, targetDir);
     setupLintPrettier(targetDir, typescript);
   }
@@ -224,76 +256,113 @@ async function createNextjs(projectName, options, targetDir) {
 // ─── React (Vite) プロジェクト生成 ──────────────────────
 
 async function createReactVite(projectName, options, targetDir) {
-  const { packageManager, tailwind, typescript, storybook, eslint, shadcn } = options;
-  const template = typescript ? 'react-ts' : 'react';
+  const { packageManager, tailwind, typescript, storybook, eslint, shadcn } =
+    options;
+  const template = typescript ? "react-ts" : "react";
 
-  log.step('Vite + React をセットアップ中...');
-  const runnerCmd = packageManager === 'npm' 
-  ? `npm create vite@latest ${projectName} -- --template ${template}` 
-  : `bun create vite@latest ${projectName} --template ${template}`;
-  
-  execSync(runnerCmd, { cwd: path.dirname(targetDir), stdio: 'pipe' });
-  runSilent(packageManager === 'npm' ? 'npm install' : 'bun install', targetDir);
+  log.step("Vite + React をセットアップ中...");
+  const runnerCmd =
+    packageManager === "npm"
+      ? `npm create vite@latest ${projectName} -- --template ${template}`
+      : `bun create vite@latest ${projectName} --template ${template}`;
+
+  execSync(runnerCmd, { cwd: path.dirname(targetDir), stdio: "pipe" });
+  runSilent(
+    packageManager === "npm" ? "npm install" : "bun install",
+    targetDir,
+  );
 
   if (tailwind) {
-    log.step('TailwindCSS をセットアップ中...');
-    runSilent((packageManager === 'npm' ? 'npm install -D' : 'bun add -d') + ' tailwindcss @tailwindcss/vite', targetDir);
+    log.step("TailwindCSS をセットアップ中...");
+    runSilent(
+      (packageManager === "npm" ? "npm install -D" : "bun add -d") +
+        " tailwindcss @tailwindcss/vite",
+      targetDir,
+    );
 
     // vite.config にplugin追加
-    const viteConfig = path.join(targetDir, typescript ? 'vite.config.ts' : 'vite.config.js');
-    let viteContent = fs.readFileSync(viteConfig, 'utf8');
-    viteContent = viteContent.replace(
-      "import react from '@vitejs/plugin-react'",
-      "import react from '@vitejs/plugin-react'\nimport tailwindcss from '@tailwindcss/vite'"
-    ).replace(
-      /plugins:\s*\[\s*react\(\)\s*\]/,
-      'plugins: [react(), tailwindcss()]'
+    const viteConfig = path.join(
+      targetDir,
+      typescript ? "vite.config.ts" : "vite.config.js",
     );
+    let viteContent = fs.readFileSync(viteConfig, "utf8");
+    viteContent = viteContent
+      .replace(
+        "import react from '@vitejs/plugin-react'",
+        "import react from '@vitejs/plugin-react'\nimport tailwindcss from '@tailwindcss/vite'",
+      )
+      .replace(
+        /plugins:\s*\[\s*react\(\)\s*\]/,
+        "plugins: [react(), tailwindcss()]",
+      );
     fs.writeFileSync(viteConfig, viteContent);
 
     // CSS に @import 追加
-    const cssPath = path.join(targetDir, 'src', 'index.css');
+    const cssPath = path.join(targetDir, "src", "index.css");
     fs.writeFileSync(cssPath, `@import "tailwindcss";\n`);
   }
 
   if (shadcn && tailwind) {
-    log.step('shadcn/ui (Vite用) をセットアップ中...');
+    log.step("shadcn/ui (Vite用) をセットアップ中...");
     // tsconfig path alias
     if (typescript) {
-      const tsconfig = JSON.parse(fs.readFileSync(path.join(targetDir, 'tsconfig.json'), 'utf8'));
+      const tsconfig = JSON.parse(
+        fs.readFileSync(path.join(targetDir, "tsconfig.json"), "utf8"),
+      );
       tsconfig.compilerOptions = tsconfig.compilerOptions || {};
-      tsconfig.compilerOptions.baseUrl = '.';
-      tsconfig.compilerOptions.paths = { '@/*': ['./src/*'] };
-      fs.writeFileSync(path.join(targetDir, 'tsconfig.json'), JSON.stringify(tsconfig, null, 2));
+      tsconfig.compilerOptions.baseUrl = ".";
+      tsconfig.compilerOptions.paths = { "@/*": ["./src/*"] };
+      fs.writeFileSync(
+        path.join(targetDir, "tsconfig.json"),
+        JSON.stringify(tsconfig, null, 2),
+      );
     }
-    runSilent((packageManager === 'npm' ? 'npm install' : 'bun add') + ' clsx tailwind-merge lucide-react', targetDir);
-    const libDir = path.join(targetDir, 'src', 'lib');
+    runSilent(
+      (packageManager === "npm" ? "npm install" : "bun add") +
+        " clsx tailwind-merge lucide-react",
+      targetDir,
+    );
+    const libDir = path.join(targetDir, "src", "lib");
     fs.mkdirSync(libDir, { recursive: true });
-    fs.writeFileSync(path.join(libDir, 'utils.ts'), `import { type ClassValue, clsx } from "clsx"
+    fs.writeFileSync(
+      path.join(libDir, "utils.ts"),
+      `import { type ClassValue, clsx } from "clsx"
 import { twMerge } from "tailwind-merge"
 export function cn(...inputs: ClassValue[]) {
   return twMerge(clsx(inputs))
 }
-`);
+`,
+    );
   }
 
   if (storybook) {
-    log.step('Storybook をセットアップ中...');
+    log.step("Storybook をセットアップ中...");
     // storybook init に任せることでバージョン整合性を自動解決
-    runSilent((packageManager === 'npm' ? 'npx' : 'bunx') + ' storybook@latest init --yes --no-dev', targetDir);
+    runSilent(
+      (packageManager === "npm" ? "npx" : "bunx") +
+        " storybook@latest init --yes --no-dev",
+      targetDir,
+    );
   }
 
   if (eslint) {
-    log.step('Prettier をセットアップ中...');
-    runSilent((packageManager === 'npm' ? 'npm install -D' : 'bun add -d') + ' prettier eslint-config-prettier', targetDir);
-    fs.writeFileSync(path.join(targetDir, '.prettierrc'), `{
+    log.step("Prettier をセットアップ中...");
+    runSilent(
+      (packageManager === "npm" ? "npm install -D" : "bun add -d") +
+        " prettier eslint-config-prettier",
+      targetDir,
+    );
+    fs.writeFileSync(
+      path.join(targetDir, ".prettierrc"),
+      `{
   "semi": false,
   "singleQuote": true,
   "tabWidth": 2,
   "trailingComma": "es5",
   "printWidth": 100
 }
-`);
+`,
+    );
   }
 }
 
@@ -301,157 +370,369 @@ export function cn(...inputs: ClassValue[]) {
 
 async function createVueVite(projectName, options, targetDir) {
   const { packageManager, tailwind, typescript, storybook, eslint } = options;
-  const template = typescript ? 'vue-ts' : 'vue';
+  const template = typescript ? "vue-ts" : "vue";
 
-  log.step('Vite + Vue をセットアップ中...');
-  
+  log.step("Vite + Vue をセットアップ中...");
+
   //Windows/Mac/Linux共通で動く方法として、echo（空の改行）をパイプで流し込む
   // これにより、最後のプロンプトで「No」を自動選択させた状態になり、勝手に起動（ハング）することなく終了できるように
-  const runnerCmd = packageManager === 'npm' 
-  ? `npm create vite@latest ${projectName} -- --template ${template}` 
-  : `bun create vite@latest ${projectName} --template ${template}`;
-  
-  execSync(runnerCmd, { cwd: path.dirname(targetDir), stdio: 'pipe' });
+  const runnerCmd =
+    packageManager === "npm"
+      ? `npm create vite@latest ${projectName} -- --template ${template}`
+      : `bun create vite@latest ${projectName} --template ${template}`;
 
-  log.step('ベースパッケージをインストール中...');
-  runSilent(packageManager === 'npm' ? 'npm install' : 'bun install', targetDir);
+  execSync(runnerCmd, { cwd: path.dirname(targetDir), stdio: "pipe" });
+
+  log.step("ベースパッケージをインストール中...");
+  runSilent(
+    packageManager === "npm" ? "npm install" : "bun install",
+    targetDir,
+  );
 
   if (tailwind) {
-    log.step('TailwindCSS をセットアップ中...');
-    runSilent((packageManager === 'npm' ? 'npm install -D' : 'bun add -d') + ' tailwindcss @tailwindcss/vite', targetDir);
-
-    const viteConfig = path.join(targetDir, typescript ? 'vite.config.ts' : 'vite.config.js');
-    let viteContent = fs.readFileSync(viteConfig, 'utf8');
-    viteContent = viteContent.replace(
-      "import vue from '@vitejs/plugin-vue'",
-      "import vue from '@vitejs/plugin-vue'\nimport tailwindcss from '@tailwindcss/vite'"
-    ).replace(
-      /plugins:\s*\[\s*vue\(\)\s*\]/,
-      'plugins: [vue(), tailwindcss()]'
+    log.step("TailwindCSS をセットアップ中...");
+    runSilent(
+      (packageManager === "npm" ? "npm install -D" : "bun add -d") +
+        " tailwindcss @tailwindcss/vite",
+      targetDir,
     );
+
+    const viteConfig = path.join(
+      targetDir,
+      typescript ? "vite.config.ts" : "vite.config.js",
+    );
+    let viteContent = fs.readFileSync(viteConfig, "utf8");
+    viteContent = viteContent
+      .replace(
+        "import vue from '@vitejs/plugin-vue'",
+        "import vue from '@vitejs/plugin-vue'\nimport tailwindcss from '@tailwindcss/vite'",
+      )
+      .replace(
+        /plugins:\s*\[\s*vue\(\)\s*\]/,
+        "plugins: [vue(), tailwindcss()]",
+      );
     fs.writeFileSync(viteConfig, viteContent);
 
-    const cssPath = path.join(targetDir, 'src', 'style.css');
+    const cssPath = path.join(targetDir, "src", "style.css");
     fs.writeFileSync(cssPath, `@import "tailwindcss";\n`);
   }
 
   if (storybook) {
-    log.step('Storybook (Vue) をセットアップ中...');
-    runSilent((packageManager === 'npm' ? 'npx' : 'bunx') + ' storybook@latest init --yes --no-dev', targetDir);
+    log.step("Storybook (Vue) をセットアップ中...");
+    runSilent(
+      (packageManager === "npm" ? "npx" : "bunx") +
+        " storybook@latest init --yes --no-dev",
+      targetDir,
+    );
   }
 
   if (eslint) {
-    log.step('Prettier をセットアップ中...');
-    runSilent((packageManager === 'npm' ? 'npm install -D' : 'bun add -d') + ' prettier', targetDir);
-    fs.writeFileSync(path.join(targetDir, '.prettierrc'), `{
+    log.step("Prettier をセットアップ中...");
+    runSilent(
+      (packageManager === "npm" ? "npm install -D" : "bun add -d") +
+        " prettier",
+      targetDir,
+    );
+    fs.writeFileSync(
+      path.join(targetDir, ".prettierrc"),
+      `{
   "semi": false,
   "singleQuote": true,
   "tabWidth": 2,
   "trailingComma": "es5"
 }
-`);
+`,
+    );
+  }
+}
+
+// ─── React (Farm) プロジェクト生成 ──────────────────────
+
+async function createReactFarm(projectName, options, targetDir) {
+  const { packageManager, tailwind, typescript, storybook, eslint, shadcn } =
+    options;
+
+  log.step("Farm + React をセットアップ中...");
+  const runnerCmd =
+    packageManager === "npm"
+      ? `npm create farm@latest ${projectName} --template react`
+      : `bun create farm@latest ${projectName} --template react`;
+
+  execSync(runnerCmd, { cwd: path.dirname(targetDir), stdio: "pipe" });
+  runSilent(
+    packageManager === "npm" ? "npm install" : "bun install",
+    targetDir,
+  );
+
+  if (tailwind) {
+    log.step("TailwindCSS をセットアップ中...");
+    runSilent(
+      (packageManager === "npm" ? "npm install -D" : "bun add -d") +
+        " tailwindcss @tailwindcss/postcss postcss",
+      targetDir,
+    );
+
+    // postcss.config.mjs にplugin追加
+    const postcssConfig = path.join(targetDir, "postcss.config.mjs");
+    const postcssContent = `export default {
+      plugins: {
+        "@tailwindcss/postcss": {},
+      }
+    }`;
+    fs.writeFileSync(postcssConfig, postcssContent);
+
+    // CSS に @import 追加
+    const cssPath = path.join(targetDir, "src", "index.css");
+    fs.writeFileSync(cssPath, `@import "tailwindcss";\n`);
+
+    //farm.config.tsにplugin追加
+    const farmConfig = path.join(targetDir, "farm.config.ts");
+    let farmContent = fs.readFileSync(farmConfig, "utf8");
+    farmContent = farmContent
+      .replace(
+        "import { defineConfig } from '@farmfe/core'",
+        "import { defineConfig } from '@farmfe/core'\nimport farmPostcssPlugin from '@farmfe/js-plugin-postcss'",
+      )
+      .replace(
+        /plugins:\s*['"]@farmfe\/plugin-react['"]\s*\]/,
+        "plugins: ['@farmfe/plugin-react', farmPostcssPlugin()]",
+      );
+    fs.writeFileSync(farmConfig, farmContent);
+
+    if (shadcn && tailwind) {
+      log.step("shadcn/ui (Farm用) をセットアップ中...");
+      // tsconfig path alias
+      const tsconfig = JSON.parse(
+        fs.readFileSync(path.join(targetDir, "tsconfig.json"), "utf8"),
+      );
+      tsconfig.compilerOptions = tsconfig.compilerOptions || {};
+      tsconfig.compilerOptions.paths = { "@/*": ["./src/*"] };
+      fs.writeFileSync(
+        path.join(targetDir, "tsconfig.json"),
+        JSON.stringify(tsconfig, null, 2),
+      );
+      runSilent(
+        (packageManager === "npm" ? "npm install" : "bun add") +
+          " clsx tailwind-merge lucide-react class-variance-authority",
+        targetDir,
+      );
+      const libDir = path.join(targetDir, "src", "lib");
+      fs.mkdirSync(libDir, { recursive: true });
+      fs.writeFileSync(
+        path.join(libDir, "utils.ts"),
+        `import { type ClassValue, clsx } from "clsx"
+import { twMerge } from "tailwind-merge"
+export function cn(...inputs: ClassValue[]) {
+  return twMerge(clsx(inputs))
+}
+`,
+      );
+      const componentsConfig = path.join(targetDir, "components.json");
+      const componentsContent = `{
+  "$schema": "https://ui.shadcn.com/docs/components.json",
+  "style": "default",
+  "rsc": false,
+  "tsx": true,
+  "tailwind": {
+    "config": "",
+    "css": "src/index.css",
+    "baseColor": "slate",
+    "cssVariables": true,
+    "prefix": ""
+  },
+  "aliases": {
+    "components": "@/components",
+    "utils": "@/lib/utils",
+    "ui": "@/components/ui",
+    "lib": "@/lib"
+  },
+  "iconLibrary": "lucide"
+}`;
+      fs.writeFileSync(componentsConfig, componentsContent);
+
+      const shadcnContent = `@import "tailwindcss";
+
+@theme {
+  --color-border: var(--border);
+  --color-input: var(--input);
+  --color-ring: var(--ring);
+  --color-background: var(--background);
+  --color-foreground: var(--foreground);
+
+  --color-primary: var(--primary);
+  --color-primary-foreground: var(--primary-foreground);
+  --color-secondary: var(--secondary);
+  --color-secondary-foreground: var(--secondary-foreground);
+  --color-destructive: var(--destructive);
+  --color-destructive-foreground: var(--destructive-foreground);
+  --color-muted: var(--muted);
+  --color-muted-foreground: var(--muted-foreground);
+  --color-accent: var(--accent);
+  --color-accent-foreground: var(--accent-foreground);
+}
+
+:root {
+  --background: #ffffff;
+  --foreground: #020817;
+  --primary: #0f172a;
+  --primary-foreground: #f8fafc;
+  --secondary: #f1f5f9;
+  --secondary-foreground: #0f172a;
+  --destructive: #ef4444;
+  --destructive-foreground: #f8fafc;
+  --muted: #f1f5f9;
+  --muted-foreground: #64748b;
+  --accent: #f1f5f9;
+  --accent-foreground: #0f172a;
+  --border: #e2e8f0;
+  --input: #e2e8f0;
+  --ring: #0f172a;
+  --radius: 0.5rem;
+}`;
+      fs.writeFileSync(cssPath, shadcnContent);
+    }
   }
 }
 
 // ─── 完了メッセージ ──────────────────────────────────────
 
 function printSuccess(projectName, options) {
-  const { packageManager, framework, tailwind, typescript, storybook, eslint, shadcn } = options;
+  const {
+    packageManager,
+    framework,
+    tailwind,
+    typescript,
+    storybook,
+    eslint,
+    shadcn,
+  } = options;
   const tags = [
     chalk.magenta(packageManager),
     chalk.magenta(framework),
-    typescript && chalk.blue('TypeScript'),
-    tailwind   && chalk.cyan('Tailwind'),
-    shadcn     && chalk.yellow('shadcn/ui'),
-    storybook  && chalk.green('Storybook'),
-    eslint     && chalk.gray('ESLint+Prettier'),
-  ].filter(Boolean).join(chalk.gray(' + '));
+    typescript && chalk.blue("TypeScript"),
+    tailwind && chalk.cyan("Tailwind"),
+    shadcn && chalk.yellow("shadcn/ui"),
+    storybook && chalk.green("Storybook"),
+    eslint && chalk.gray("ESLint+Prettier"),
+  ]
+    .filter(Boolean)
+    .join(chalk.gray(" + "));
 
-  console.log('\n' + chalk.bgGreen.black(' DONE ') + ' ' + chalk.bold(projectName) + chalk.gray(' が作成されました'));
-  console.log(chalk.gray('  構成:'), tags);
-  console.log('\n' + chalk.bold('  次のステップ:'));
+  console.log(
+    "\n" +
+      chalk.bgGreen.black(" DONE ") +
+      " " +
+      chalk.bold(projectName) +
+      chalk.gray(" が作成されました"),
+  );
+  console.log(chalk.gray("  構成:"), tags);
+  console.log("\n" + chalk.bold("  次のステップ:"));
   console.log(chalk.cyan(`    cd ${projectName}`));
-  console.log(chalk.cyan('    ' + (packageManager === 'npm' ? 'npm run dev' : 'bun run dev')));
-  if (storybook) console.log(chalk.cyan('    ' + (packageManager === 'npm' ? 'npm' : 'bun') + ' run storybook'));
+  console.log(
+    chalk.cyan(
+      "    " + (packageManager === "npm" ? "npm run dev" : "bun run dev"),
+    ),
+  );
+  if (storybook)
+    console.log(
+      chalk.cyan(
+        "    " + (packageManager === "npm" ? "npm" : "bun") + " run storybook",
+      ),
+    );
   console.log();
 }
 
 // ─── メインの対話フロー ──────────────────────────────────
 
 async function main() {
-  console.log('\n' + chalk.bold.cyan('◆ create-web-app-cli') + chalk.gray('  プロジェクト雛形ジェネレーター\n'));
+  console.log(
+    "\n" +
+      chalk.bold.cyan("◆ create-web-app-cli") +
+      chalk.gray("  プロジェクト雛形ジェネレーター\n"),
+  );
 
   const answers = await inquirer.prompt([
     {
-      type: 'input',
-      name: 'projectName',
-      message: 'プロジェクト名:',
-      default: 'my-app',
-      validate: (v) => /^[a-z0-9-_]+$/.test(v) || '小文字・数字・ハイフンのみ使用可能です',
+      type: "input",
+      name: "projectName",
+      message: "プロジェクト名:",
+      default: "my-app",
+      validate: (v) =>
+        /^[a-z0-9-_]+$/.test(v) || "小文字・数字・ハイフンのみ使用可能です",
     },
     {
-      type: 'list',
-      name: 'packageManager',
-      message: 'パッケージマネージャー',
+      type: "list",
+      name: "packageManager",
+      message: "パッケージマネージャー",
       choices: [
-        { name: 'npm', value: 'npm' },
-        { name: 'bun', value: 'bun'},
+        { name: "npm", value: "npm" },
+        { name: "bun", value: "bun" },
       ],
     },
     {
-      type: 'list',
-      name: 'framework',
-      message: 'フレームワーク:',
+      type: "list",
+      name: "framework",
+      message: "フレームワーク:",
       choices: [
-        { name: 'Next.js  (App Router)', value: 'nextjs' },
-        { name: 'React    (Vite)',        value: 'react' },
-        { name: 'Vue 3    (Vite)',        value: 'vue' },
+        { name: "Next.js  (App Router)", value: "nextjs" },
+        { name: "React    (Vite)", value: "react_vite" },
+        { name: "Vue 3    (Vite)", value: "vue" },
+        { name: "React    (Farm)", value: "react_farm" },
       ],
     },
     {
-      type: 'confirm',
-      name: 'typescript',
-      message: 'TypeScript を使う?',
+      type: "confirm",
+      name: "typescript",
+      message: "TypeScript を使う?",
+      default: true,
+      when: (ans) => ans.framework !== "react_farm",
+    },
+    {
+      type: "confirm",
+      name: "tailwind",
+      message: "TailwindCSS を追加する?",
       default: true,
     },
     {
-      type: 'confirm',
-      name: 'tailwind',
-      message: 'TailwindCSS を追加する?',
-      default: true,
-    },
-    {
-      type: 'confirm',
-      name: 'shadcn',
-      message: 'shadcn/ui を追加する?',
+      type: "confirm",
+      name: "shadcn",
+      message: "shadcn/ui を追加する?",
       default: false,
-      when: (ans) => ans.tailwind && ans.framework !== 'vue',
+      when: (ans) => ans.tailwind && ans.framework !== "vue",
     },
     {
-      type: 'confirm',
-      name: 'eslint',
-      message: 'ESLint + Prettier を追加する?',
+      type: "confirm",
+      name: "eslint",
+      message: "ESLint + Prettier を追加する?",
       default: true,
     },
     {
-      type: 'confirm',
-      name: 'storybook',
-      message: 'Storybook を追加する?',
+      type: "confirm",
+      name: "storybook",
+      message: "Storybook を追加する?",
       default: false,
     },
     {
-      type: 'confirm',
-      name: 'confirm',
+      type: "confirm",
+      name: "confirm",
       message: (ans) => {
         const opts = [
-          ans.packageManager === 'npm' ? 'npm' : 'bun',
-          ans.framework === 'nextjs' ? 'Next.js' : ans.framework === 'react' ? 'React+Vite' : 'Vue+Vite',
-          ans.typescript ? 'TypeScript' : 'JavaScript',
-          ans.tailwind   ? 'Tailwind'   : null,
-          ans.shadcn     ? 'shadcn/ui'  : null,
-          ans.eslint     ? 'ESLint+Prettier' : null,
-          ans.storybook  ? 'Storybook'  : null,
-        ].filter(Boolean).join(' + ');
+          ans.packageManager === "npm" ? "npm" : "bun",
+          ans.framework === "nextjs"
+            ? "Next.js"
+            : ans.framework === "react_vite"
+              ? "React+Vite"
+              : ans.framework === "vue"
+                ? "Vue+Vite"
+                : "React+Farm",
+          ans.typescript ? "TypeScript" : "JavaScript",
+          ans.tailwind ? "Tailwind" : null,
+          ans.shadcn ? "shadcn/ui" : null,
+          ans.eslint ? "ESLint+Prettier" : null,
+          ans.storybook ? "Storybook" : null,
+        ]
+          .filter(Boolean)
+          .join(" + ");
         return `\n  構成: ${chalk.cyan(opts)}\n  この内容でプロジェクトを作成しますか?`;
       },
       default: true,
@@ -459,11 +740,19 @@ async function main() {
   ]);
 
   if (!answers.confirm) {
-    log.warn('キャンセルしました');
+    log.warn("キャンセルしました");
     process.exit(0);
   }
 
-  const { projectName, packageManager, framework, typescript, tailwind, eslint, storybook } = answers;
+  const {
+    projectName,
+    packageManager,
+    framework,
+    typescript,
+    tailwind,
+    eslint,
+    storybook,
+  } = answers;
   const shadcn = answers.shadcn || false;
   const targetDir = path.resolve(process.cwd(), projectName);
 
@@ -473,15 +762,23 @@ async function main() {
   }
 
   console.log();
-  const spinner = ora(chalk.gray('セットアップを開始します...')).start();
+  const spinner = ora(chalk.gray("セットアップを開始します...")).start();
   spinner.stop();
 
   try {
-    const opts = { packageManager, framework, typescript, tailwind, eslint, storybook, shadcn };
+    const opts = {
+      packageManager,
+      framework,
+      typescript,
+      tailwind,
+      eslint,
+      storybook,
+      shadcn,
+    };
 
-    if (framework === 'nextjs') {
+    if (framework === "nextjs") {
       await createNextjs(projectName, opts, targetDir);
-    } else if (framework === 'react') {
+    } else if (framework === "react") {
       await createReactVite(projectName, opts, targetDir);
     } else {
       await createVueVite(projectName, opts, targetDir);
@@ -489,16 +786,16 @@ async function main() {
 
     printSuccess(projectName, opts);
   } catch (err) {
-    log.error('エラーが発生しました:');
+    log.error("エラーが発生しました:");
     console.error(chalk.red(err.message));
     process.exit(1);
   }
 }
 
 program
-  .name('create-web-app-cli')
+  .name("create-web-app-cli")
   .version(pkg.version)
-  .description('対話型フロントエンドプロジェクトジェネレーター')
+  .description("対話型フロントエンドプロジェクトジェネレーター")
   .action(main);
 
 program.parse(process.argv);
