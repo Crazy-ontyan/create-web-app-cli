@@ -468,7 +468,7 @@ async function createReactFarm(projectName, options, targetDir) {
     log.step("TailwindCSS をセットアップ中...");
     runSilent(
       (packageManager === "npm" ? "npm install -D" : "bun add -d") +
-        " tailwindcss @tailwindcss/postcss postcss",
+        " tailwindcss @tailwindcss/postcss postcss @farmfe/js-plugin-postcss",
       targetDir,
     );
 
@@ -488,47 +488,70 @@ async function createReactFarm(projectName, options, targetDir) {
     //farm.config.tsにplugin追加
     const farmConfig = path.join(targetDir, "farm.config.ts");
     let farmContent = fs.readFileSync(farmConfig, "utf8");
-    farmContent = farmContent
-      .replace(
+    if (!farmContent.includes("farmPostcssPlugin")) {
+      farmContent = farmContent.replace(
         "import { defineConfig } from '@farmfe/core'",
         "import { defineConfig } from '@farmfe/core'\nimport farmPostcssPlugin from '@farmfe/js-plugin-postcss'",
-      )
-      .replace(
-        /plugins:\s*['"]@farmfe\/plugin-react['"]\s*\]/,
-        "plugins: ['@farmfe/plugin-react', farmPostcssPlugin()]",
       );
-    fs.writeFileSync(farmConfig, farmContent);
+    }
 
-    if (shadcn && tailwind) {
-      log.step("shadcn/ui (Farm用) をセットアップ中...");
-      // tsconfig path alias
-      const tsconfig = JSON.parse(
-        fs.readFileSync(path.join(targetDir, "tsconfig.json"), "utf8"),
+    if (
+      farmContent.includes("plugins:") &&
+      !farmContent.includes("farmPostcssPlugin()")
+    ) {
+      farmContent = farmContent.replace(
+        /plugins:\s*\[/,
+        "plugins: [\n    farmPostcssPlugin(),",
       );
-      tsconfig.compilerOptions = tsconfig.compilerOptions || {};
-      tsconfig.compilerOptions.paths = { "@/*": ["./src/*"] };
-      fs.writeFileSync(
-        path.join(targetDir, "tsconfig.json"),
-        JSON.stringify(tsconfig, null, 2),
-      );
-      runSilent(
-        (packageManager === "npm" ? "npm install" : "bun add") +
-          " clsx tailwind-merge lucide-react class-variance-authority",
-        targetDir,
-      );
-      const libDir = path.join(targetDir, "src", "lib");
-      fs.mkdirSync(libDir, { recursive: true });
-      fs.writeFileSync(
-        path.join(libDir, "utils.ts"),
-        `import { type ClassValue, clsx } from "clsx"
+    }
+
+    fs.writeFileSync(farmConfig, farmContent, "utf8");
+  }
+
+  //shadcn/uiとtailwindcssを使う場合のセットアップ処理
+  if (shadcn && tailwind) {
+    log.step("shadcn/ui (Farm用) をセットアップ中...");
+
+    // 1. tsconfig.json を読み込む
+    const rawTsconfig = fs.readFileSync(
+      path.join(targetDir, "tsconfig.json"),
+      "utf8",
+    );
+
+    // 正規表現でコメント（// や /* */）を取り除く
+    const cleanedTsconfig = rawTsconfig
+      .replace(/\/\*[\s\S]*?\*\//g, "") // ブロックコメント (/* */) を削除
+      .replace(/\/\/.*/g, ""); // 行コメント (//) を削除
+
+    // コメントを除去した文字列をパースする
+    const tsconfig = JSON.parse(cleanedTsconfig);
+
+    tsconfig.compilerOptions = tsconfig.compilerOptions || {};
+    tsconfig.compilerOptions.paths = { "@/*": ["./src/*"] };
+
+    fs.writeFileSync(
+      path.join(targetDir, "tsconfig.json"),
+      JSON.stringify(tsconfig, null, 2),
+    );
+
+    runSilent(
+      (packageManager === "npm" ? "npm install" : "bun add") +
+        " clsx tailwind-merge lucide-react class-variance-authority",
+      targetDir,
+    );
+    const libDir = path.join(targetDir, "src", "lib");
+    fs.mkdirSync(libDir, { recursive: true });
+    fs.writeFileSync(
+      path.join(libDir, "utils.ts"),
+      `import { type ClassValue, clsx } from "clsx"
 import { twMerge } from "tailwind-merge"
 export function cn(...inputs: ClassValue[]) {
   return twMerge(clsx(inputs))
 }
 `,
-      );
-      const componentsConfig = path.join(targetDir, "components.json");
-      const componentsContent = `{
+    );
+    const componentsConfig = path.join(targetDir, "components.json");
+    const componentsContent = `{
   "$schema": "https://ui.shadcn.com/docs/components.json",
   "style": "default",
   "rsc": false,
@@ -548,9 +571,9 @@ export function cn(...inputs: ClassValue[]) {
   },
   "iconLibrary": "lucide"
 }`;
-      fs.writeFileSync(componentsConfig, componentsContent);
+    fs.writeFileSync(componentsConfig, componentsContent);
 
-      const shadcnContent = `@import "tailwindcss";
+    const shadcnContent = `@import "tailwindcss";
 
 @theme {
   --color-border: var(--border);
@@ -589,8 +612,230 @@ export function cn(...inputs: ClassValue[]) {
   --ring: #0f172a;
   --radius: 0.5rem;
 }`;
-      fs.writeFileSync(cssPath, shadcnContent);
+    const cssPath = path.join(targetDir, "src", "index.css");
+    fs.writeFileSync(cssPath, shadcnContent);
+  }
+
+  //storybookを使う場合のセットアップ処理
+  if (storybook) {
+    log.step("Storybook をセットアップ中...");
+    // storybook init に任せることでバージョン整合性を自動解決
+    runSilent(
+      (packageManager === "npm" ? "npx" : "bunx") +
+        " storybook@latest init --type react --builder vite --yes",
+      targetDir,
+    );
+    if (tailwind) {
+      const previewPath = path.join(targetDir, ".storybook", "preview.ts");
+      const importLine = 'import "../src/index.css";';
+
+      // ファイルがまだ存在しない場合の初期テンプレート
+      const initialTemplate = `import type { Preview } from "@storybook/react";
+${importLine}
+
+const preview: Preview = {
+  parameters: {
+    controls: {
+      matchers: {
+        color: /(background|color)$/i,
+        date: /Date$/i,
+      },
+    },
+  },
+};
+
+export default preview;
+`;
+
+      try {
+        // 1. フォルダが存在しない可能性もあるため、念のため親フォルダを作成
+        const dirPath = path.dirname(previewPath);
+        if (!fs.existsSync(dirPath)) {
+          fs.mkdirSync(dirPath, { recursive: true });
+        }
+
+        // 2. ファイルが存在しない場合は、新規作成して終了
+        if (!fs.existsSync(previewPath)) {
+          fs.writeFileSync(previewPath, initialTemplate, "utf8");
+          console.log(
+            "preview.ts を新規作成し、CSSのインポートを追加しました。",
+          );
+        } else {
+          // 3. ファイルが存在する場合は、2行目に挿入する
+          const content = fs.readFileSync(previewPath, "utf8");
+
+          // 二重追加を防止
+          if (!content.includes(importLine)) {
+            const lines = content.split(/\r?\n/);
+
+            // 2行目（配列のインデックス 1）に挿入
+            lines.splice(1, 0, importLine);
+
+            // 配列を結合して書き込み
+            const updatedContent = lines.join("\n");
+            fs.writeFileSync(previewPath, updatedContent, "utf8");
+            console.log("preview.ts の2行目にCSSのインポートを追記しました。");
+          } else {
+            console.log(
+              "既にCSSのインポートが記述されているため、スキップしました。",
+            );
+          }
+        }
+      } catch (error) {
+        console.error("ファイルの処理中にエラーが発生しました:", error);
+      }
+      const tsconfig = JSON.parse(
+        fs.readFileSync(path.join(targetDir, "tsconfig.json"), "utf8"),
+      );
+      tsconfig.include = tsconfig.include || [];
+      tsconfig.include = ["src", ".storybook/**/*"];
+      fs.writeFileSync(
+        path.join(targetDir, "tsconfig.json"),
+        JSON.stringify(tsconfig, null, 2),
+      );
     }
+
+    //storybookを使用するかつ、shadcn/uiとtailwindcssを使う場合のセットアップ処理
+    if (shadcn && tailwind) {
+      //plugin追加
+      runSilent(
+        (packageManager === "npm" ? "npm install -D" : "bun add -d") +
+          " vite-tsconfig-paths",
+        targetDir,
+      );
+      const mainConfigPath = path.join(targetDir, ".storybook", "main.ts");
+
+      // 1. 置き換える（または新規作成する）コード全体
+      const updatedConfigTemplate = `import type { StorybookConfig } from '@storybook/react-vite';
+import tsconfigPaths from "vite-tsconfig-paths"
+
+const config: StorybookConfig = {
+  "stories": [
+    "../src/**/*.mdx",
+    "../src/**/*.stories.@(js|jsx|mjs|ts|tsx)"
+  ],
+  "addons": [
+    "@chromatic-com/storybook",
+    "@storybook/addon-vitest",
+    "@storybook/addon-a11y",
+    "@storybook/addon-docs",
+    "@storybook/addon-mcp"
+  ],
+  "framework": "@storybook/react-vite",
+
+  "viteFinal": async (config) => {
+    config.plugins = config.plugins || [];
+    config.plugins.push(tsconfigPaths());
+    return config;
+  },
+};
+
+export default config;
+`;
+
+      try {
+        // 2. 念のため親フォルダ（.storybook）が存在するか確認し、なければ作成
+        const dirPath = path.dirname(mainConfigPath);
+        if (!fs.existsSync(dirPath)) {
+          fs.mkdirSync(dirPath, { recursive: true });
+        }
+
+        // 3. すでに書き換え済みかどうかのチェック（二重処理の防止）
+        let isAlreadyUpdated = false;
+        if (fs.existsSync(mainConfigPath)) {
+          const currentContent = fs.readFileSync(mainConfigPath, "utf8");
+          if (
+            currentContent.includes("viteFinal") &&
+            currentContent.includes("vite-tsconfig-paths")
+          ) {
+            isAlreadyUpdated = true;
+          }
+        }
+
+        // 4. ファイルの書き込み・上書き
+        if (!isAlreadyUpdated) {
+          fs.writeFileSync(mainConfigPath, updatedConfigTemplate, "utf8");
+          console.log(
+            "main.ts を更新（または新規作成）し、viteFinal と tsconfigPaths を追加しました。",
+          );
+        } else {
+          console.log("main.ts は既に更新済みのため、処理をスキップしました。");
+        }
+      } catch (error) {
+        console.error("ファイルの書き換え中にエラーが発生しました:", error);
+      }
+    }
+  }
+
+  //eslintとprettierを使う場合のセットアップ処理
+  if (eslint) {
+    log.step("Prettier をセットアップ中...");
+    runSilent(
+      (packageManager === "npm" ? "npm install -D" : "bun add -d") +
+        " eslint prettier eslint-config-prettier eslint-plugin-react-hooks eslint-plugin-react-refresh @typescript-eslint/eslint-plugin @typescript-eslint/parser @eslint/js typescript-eslint",
+      targetDir,
+    );
+    fs.writeFileSync(
+      path.join(targetDir, ".prettierrc"),
+      `{
+  "semi": false,
+  "singleQuote": true,
+  "tabWidth": 2,
+  "trailingComma": "es5",
+  "printWidth": 100
+}
+`,
+    );
+    fs.writeFileSync(
+      path.join(targetDir, "eslint.config.js"),
+      `import js from "@eslint/js";
+import tseslint from "typescript-eslint";
+import reactHooks from "eslint-plugin-react-hooks";
+import reactRefresh from "eslint-plugin-react-refresh";
+import eslintConfigPrettier from "eslint-config-prettier";
+
+export default tseslint.config(
+  { ignores: ["dist", ".farm"] },
+  {
+    extends: [js.configs.recommended, ...tseslint.configs.recommended],
+    files: ["**/*.{ts,tsx}"],
+    languageOptions: {
+      ecmaVersion: 2020,
+    },
+    plugins: {
+      "react-hooks": reactHooks,
+      "react-refresh": reactRefresh,
+    },
+    rules: {
+      ...reactHooks.configs.recommended.rules,
+      "react-refresh/only-export-components": [
+        "warn",
+        { allowConstantExport: true },
+      ],
+    },
+  },
+  eslintConfigPrettier
+);`,
+    );
+
+    fs.writeFileSync(
+      path.join(targetDir, ".prettierignore"),
+      `dist
+.farm
+node_modules`,
+    );
+    const packageconfig = JSON.parse(
+      fs.readFileSync(path.join(targetDir, "package.json"), "utf8"),
+    );
+    packageconfig.scripts = packageconfig.scripts || {};
+    packageconfig.scripts.lint = "eslint .";
+    packageconfig.scripts.format =
+      'prettier --write "src/**/*.{ts,tsx,css,json}"';
+    packageconfig.type = "module";
+    fs.writeFileSync(
+      path.join(targetDir, "package.json"),
+      JSON.stringify(packageconfig, null, 2),
+    );
   }
 }
 
@@ -725,7 +970,7 @@ async function main() {
               : ans.framework === "vue"
                 ? "Vue+Vite"
                 : "React+Farm",
-          ans.typescript ? "TypeScript" : "JavaScript",
+          ans.typescript ? "TypeScript" : ans.framework === "react_farm" ? "TypeScript" : "JavaScript",
           ans.tailwind ? "Tailwind" : null,
           ans.shadcn ? "shadcn/ui" : null,
           ans.eslint ? "ESLint+Prettier" : null,
@@ -778,10 +1023,12 @@ async function main() {
 
     if (framework === "nextjs") {
       await createNextjs(projectName, opts, targetDir);
-    } else if (framework === "react") {
+    } else if (framework === "react_vite") {
       await createReactVite(projectName, opts, targetDir);
-    } else {
+    } else if (framework === "vue") {
       await createVueVite(projectName, opts, targetDir);
+    } else if (framework === "react_farm") {
+      await createReactFarm(projectName, opts, targetDir);
     }
 
     printSuccess(projectName, opts);
