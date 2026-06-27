@@ -921,8 +921,9 @@ async function main() {
       choices: [
         { name: "Next.js  (App Router)", value: "nextjs" },
         { name: "React    (Vite)", value: "react_vite" },
-        { name: "Vue 3    (Vite)", value: "vue" },
+        { name: "Vue 3    (Vite)", value: "vue_vite" },
         { name: "React    (Farm)", value: "react_farm" },
+        { name: "Vue 3    (Farm)", value: "vue_farm" },
       ],
     },
     {
@@ -943,7 +944,7 @@ async function main() {
       name: "shadcn",
       message: "shadcn/ui を追加する?",
       default: false,
-      when: (ans) => ans.tailwind && ans.framework !== "vue",
+      when: (ans) => ans.tailwind && (ans.framework !== "vue_vite" && ans.framework !== "vue_farm"),
     },
     {
       type: "confirm",
@@ -967,10 +968,16 @@ async function main() {
             ? "Next.js"
             : ans.framework === "react_vite"
               ? "React+Vite"
-              : ans.framework === "vue"
+              : ans.framework === "vue_vite"
                 ? "Vue+Vite"
-                : "React+Farm",
-          ans.typescript ? "TypeScript" : ans.framework === "react_farm" ? "TypeScript" : "JavaScript",
+                : ans.framework === "react_farm"
+                  ? "React+Farm"
+                  : "Vue+Farm",
+          ans.typescript
+            ? "TypeScript"
+            : ans.framework === "react_farm" || ans.framework === "vue_farm"
+              ? "TypeScript"
+              : "JavaScript",
           ans.tailwind ? "Tailwind" : null,
           ans.shadcn ? "shadcn/ui" : null,
           ans.eslint ? "ESLint+Prettier" : null,
