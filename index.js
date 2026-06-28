@@ -592,6 +592,10 @@ export function cn(...inputs: ClassValue[]) {
   --color-muted-foreground: var(--muted-foreground);
   --color-accent: var(--accent);
   --color-accent-foreground: var(--accent-foreground);
+  
+  --radius-lg: var(--radius);
+  --radius-md: calc(var(--radius) - 2px);
+  --radius-sm: calc(var(--radius) - 4px);
 }
 
 :root {
@@ -839,6 +843,305 @@ node_modules`,
   }
 }
 
+async function createVueFarm(projectName, options, targetDir) {
+  const { packageManager, tailwind, typescript, storybook, eslint, shadcn } =
+    options;
+
+  log.step("Farm + Vue をセットアップ中...");
+  const runnerCmd =
+    packageManager === "npm"
+      ? `npm create farm@latest ${projectName} --template vue3`
+      : `bun create farm@latest ${projectName} --template vue3`;
+
+  execSync(runnerCmd, { cwd: path.dirname(targetDir), stdio: "pipe" });
+  runSilent(
+    packageManager === "npm" ? "npm install" : "bun install",
+    targetDir,
+  );
+
+  if (tailwind) {
+    log.step("TailwindCSS をセットアップ中...");
+    runSilent(
+      (packageManager === "npm" ? "npm install -D" : "bun add -d") +
+        " tailwindcss @tailwindcss/postcss postcss @farmfe/js-plugin-postcss",
+      targetDir,
+    );
+
+    // postcss.config.mjs にplugin追加
+    const postcssConfig = path.join(targetDir, "postcss.config.mjs");
+    const postcssContent = `export default {
+      plugins: {
+        "@tailwindcss/postcss": {},
+      }
+    }`;
+    fs.writeFileSync(postcssConfig, postcssContent);
+
+    // CSS に @import 追加
+    const cssPath = path.join(targetDir, "src", "style.css");
+    fs.writeFileSync(cssPath, `@import "tailwindcss";\n`);
+
+    //farm.config.tsにplugin追加
+    const farmConfig = path.join(targetDir, "farm.config.ts");
+    let farmContent = fs.readFileSync(farmConfig, "utf8");
+
+    if (!farmContent.includes("farmPostcssPlugin")) {
+      farmContent = farmContent.replace(
+        "import { defineConfig } from '@farmfe/core'",
+        "import { defineConfig } from '@farmfe/core'\nimport farmPostcssPlugin from '@farmfe/js-plugin-postcss'",
+      );
+    }
+
+    if (!farmContent.includes("farmPostcssPlugin()")) {
+      farmContent = farmContent.replace(
+        /export\s+default\s+defineConfig\s*\(\s*\{/,
+        "export default defineConfig({\n  plugins: [farmPostcssPlugin()],",
+      );
+    }
+
+    fs.writeFileSync(farmConfig, farmContent, "utf8");
+  }
+
+// ─── storybookを使う場合のセットアップ処理 ───
+  if (storybook) {
+    log.step("Storybook をセットアップ中...");
+    // storybook init に任せることでバージョン整合性を自動解決
+    runSilent(
+      (packageManager === "npm" ? "npx" : "bunx") +
+        " storybook@latest init --type vue3 --builder vite --yes",
+      targetDir,
+    );
+    if (tailwind) {
+      const previewPath = path.join(targetDir, ".storybook", "preview.ts");
+      const importLine = 'import "../src/style.css";';
+
+      // ファイルがまだ存在しない場合の初期テンプレート
+      const initialTemplate = `import type { Preview } from "@storybook/vue3";
+${importLine}
+
+const preview: Preview = {
+  parameters: {
+    controls: {
+      matchers: {
+        color: /(background|color)$/i,
+        date: /Date$/i,
+      },
+    },
+  },
+};
+
+export default preview;
+`;
+
+      try {
+        // 1. フォルダが存在しない可能性もあるため、念のため親フォルダを作成
+        const dirPath = path.dirname(previewPath);
+        if (!fs.existsSync(dirPath)) {
+          fs.mkdirSync(dirPath, { recursive: true });
+        }
+
+        // 2. ファイルが存在しない場合は、新規作成して終了
+        if (!fs.existsSync(previewPath)) {
+          fs.writeFileSync(previewPath, initialTemplate, "utf8");
+          console.log(
+            "preview.ts を新規作成し、CSSのインポートを追加しました。",
+          );
+        } else {
+          // 3. ファイルが存在する場合は、2行目に挿入する
+          const content = fs.readFileSync(previewPath, "utf8");
+
+          // 二重追加を防止
+          if (!content.includes(importLine)) {
+            const lines = content.split(/\r?\n/);
+
+            // 2行目（配列のインデックス 1）に挿入
+            lines.splice(1, 0, importLine);
+
+            // 配列を結合して書き込み
+            const updatedContent = lines.join("\n");
+            fs.writeFileSync(previewPath, updatedContent, "utf8");
+            console.log("preview.ts の2行目にCSSのインポートを追記しました。");
+          } else {
+            console.log(
+              "既にCSSのインポートが記述されているため、スキップしました。",
+            );
+          }
+        }
+      } catch (error) {
+        console.error("ファイルの処理中にエラーが発生しました:", error);
+      }
+      
+      // パス解決プラグインをインストール
+      runSilent(
+        (packageManager === "npm" ? "npm install -D" : "bun add -d") +
+          " vite-tsconfig-paths",
+        targetDir,
+      );
+
+      const mainConfigPath = path.join(targetDir, ".storybook", "main.ts");
+      const updatedConfigTemplate = `import type { StorybookConfig } from '@storybook/vue3-vite';
+import tsconfigPaths from "vite-tsconfig-paths"
+import vue from '@vitejs/plugin-vue'
+
+const config: StorybookConfig = {
+  "stories": [
+    "../src/**/*.mdx",
+    "../src/**/*.stories.@(js|jsx|mjs|ts|tsx)"
+  ],
+  "addons": [
+    "@chromatic-com/storybook",
+    "@storybook/addon-vitest",
+    "@storybook/addon-a11y",
+    "@storybook/addon-docs",
+    "@storybook/addon-onboarding"
+  ],
+  "framework": "@storybook/vue3-vite",
+
+  "viteFinal": async (config) => {
+    config.plugins = config.plugins || [];
+    config.plugins.push(tsconfigPaths());
+    
+    const hasVuePlugin = config.plugins.some((p) => p && p.name === 'vite:vue');
+    if (!hasVuePlugin) {
+      config.plugins.push(vue());
+    }
+    return config;
+  },
+};
+
+export default config;
+`;
+
+      try {
+        const dirPath = path.dirname(mainConfigPath);
+        if (!fs.existsSync(dirPath)) {
+          fs.mkdirSync(dirPath, { recursive: true });
+        }
+        fs.writeFileSync(mainConfigPath, updatedConfigTemplate, "utf8");
+        console.log("main.ts を更新し、viteFinal、tsconfigPaths、vueプラグインを追加しました。");
+      } catch (error) {
+        console.error("main.ts の書き換え中にエラーが発生しました:", error);
+      }
+
+      const rawTsconfig = fs.readFileSync(
+        path.join(targetDir, "tsconfig.json"),
+        "utf8",
+      );
+
+      // 正規表現でコメント（// や /* */）と、末尾の不要なカンマを取り除く
+      const cleanedTsconfig = rawTsconfig
+        .replace(/\/\*[\s\S]*?\*\//g, "") // ブロックコメント削除
+        .replace(/\/\/.*/g, "") // 行コメント削除
+        .replace(/,(\s*[\]}])/g, "$1"); // 末尾の不要なカンマを削除してJSON準拠にする
+
+      // クレンジングした文字列をパースする
+      const tsconfig = JSON.parse(cleanedTsconfig);
+      tsconfig.include = tsconfig.include || [];
+      tsconfig.include = ["src", ".storybook/**/*"];
+
+      fs.writeFileSync(
+        path.join(targetDir, "tsconfig.json"),
+        JSON.stringify(tsconfig, null, 2),
+      );
+    }
+  }
+
+  //eslintとprettierを使う場合のセットアップ処理
+  if (eslint) {
+    log.step("Prettier をセットアップ中...");
+    runSilent(
+      (packageManager === "npm" ? "npm install -D" : "bun add -d") +
+        " eslint prettier eslint-config-prettier eslint-plugin-vue @typescript-eslint/eslint-plugin @typescript-eslint/parser @eslint/js typescript-eslint",
+      targetDir,
+    );
+    fs.writeFileSync(
+      path.join(targetDir, ".prettierrc"),
+      `{
+  "semi": false,
+  "singleQuote": true,
+  "tabWidth": 2,
+  "trailingComma": "es5",
+  "printWidth": 100
+}
+`,
+    );
+    fs.writeFileSync(
+      path.join(targetDir, "eslint.config.js"),
+      `import js from "@eslint/js";
+import tseslint from "typescript-eslint";
+import pluginVue from "eslint-plugin-vue";
+import eslintConfigPrettier from "eslint-config-prettier";
+
+export default tseslint.config(
+  { ignores: ["dist", ".farm", "node_modules"] },
+  js.configs.recommended,
+  ...tseslint.configs.recommended,
+  ...pluginVue.configs["flat/essential"],
+  {
+    files: ["**/*.{ts,vue}"],
+    languageOptions: {
+      ecmaVersion: "latest",
+      sourceType: "module",
+      parserOptions: {
+        parser: tseslint.parser,
+        extraFileExtensions: [".vue"],
+      },
+    },
+    rules: {
+      "vue/multi-word-component-names": "off",
+    },
+  },
+  eslintConfigPrettier
+);`,
+    );
+
+    fs.writeFileSync(
+      path.join(targetDir, ".prettierignore"),
+      `dist
+.farm
+node_modules`,
+    );
+    const packageconfig = JSON.parse(
+      fs.readFileSync(path.join(targetDir, "package.json"), "utf8"),
+    );
+    packageconfig.scripts = packageconfig.scripts || {};
+    packageconfig.scripts.lint = "eslint .";
+    packageconfig.scripts.format =
+      'prettier --write "src/**/*.{ts,vue,css,json}"';
+    packageconfig.type = "module";
+    fs.writeFileSync(
+      path.join(targetDir, "package.json"),
+      JSON.stringify(packageconfig, null, 2),
+    );
+  }
+
+  const envDtsPath = path.join(targetDir, "src", "env.d.ts");
+
+  // すでにファイルが存在する場合は末尾に追記、なければ新規作成する
+  const cssDeclaration = `\ndeclare module '*.css' {\n  const content: Record<string, string>;\n  export default content;\n}\n`;
+
+  if (fs.existsSync(envDtsPath)) {
+    const currentContent = fs.readFileSync(envDtsPath, "utf8");
+    if (!currentContent.includes("*.css'")) {
+      fs.appendFileSync(envDtsPath, cssDeclaration, "utf8");
+      console.log("env.d.ts に CSS の型宣言を追加しました。");
+    }
+  } else {
+    // 万が一ファイルがない場合の初期テンプレート
+    const initialContent = `declare module '*.vue' {
+  import type { DefineComponent } from 'vue'
+  const component: DefineComponent<{}, {}, any>
+  export default component
+}
+
+declare module '*.svg' {
+  const content: any;
+  export default content;
+}
+${cssDeclaration}`;
+    fs.writeFileSync(envDtsPath, initialContent, "utf8");
+  }
+}
+
 // ─── 完了メッセージ ──────────────────────────────────────
 
 function printSuccess(projectName, options) {
@@ -931,7 +1234,8 @@ async function main() {
       name: "typescript",
       message: "TypeScript を使う?",
       default: true,
-      when: (ans) => ans.framework !== "react_farm",
+      when: (ans) =>
+        ans.framework !== "react_farm" && ans.framework !== "vue_farm",
     },
     {
       type: "confirm",
@@ -944,7 +1248,10 @@ async function main() {
       name: "shadcn",
       message: "shadcn/ui を追加する?",
       default: false,
-      when: (ans) => ans.tailwind && (ans.framework !== "vue_vite" && ans.framework !== "vue_farm"),
+      when: (ans) =>
+        ans.tailwind &&
+        ans.framework !== "vue_vite" &&
+        ans.framework !== "vue_farm",
     },
     {
       type: "confirm",
@@ -1032,10 +1339,12 @@ async function main() {
       await createNextjs(projectName, opts, targetDir);
     } else if (framework === "react_vite") {
       await createReactVite(projectName, opts, targetDir);
-    } else if (framework === "vue") {
+    } else if (framework === "vue_vite") {
       await createVueVite(projectName, opts, targetDir);
     } else if (framework === "react_farm") {
       await createReactFarm(projectName, opts, targetDir);
+    } else if (framework === "vue_farm") {
+      await createVueFarm(projectName, opts, targetDir);
     }
 
     printSuccess(projectName, opts);
